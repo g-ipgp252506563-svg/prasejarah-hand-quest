@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prasejarah Hand Quest: Gerak Tangan, Jejak Sejarah!</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Hands & Camera Utils -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        stone: {
+                            850: '#231e1a',
+                            950: '#14100d',
+                        }
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        quicksand: ['Quicksand', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: linear-gradient(135deg, #2d1b0d 0%, #1a0f07 100%);
+            color: #f3f4f6;
+            touch-action: manipulation;
+        }
+        h1, h2, h3, h4, .font-title {
+            font-family: 'Fredoka', cursive;
+        }
+        .gesture-badge {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .gesture-active {
+            transform: scale(1.05);
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+            background-color: rgba(245, 158, 11, 0.25) !important;
+        }
+        .option-card {
+            transition: all 0.2s ease;
+        }
+        .option-card:hover, .option-card.highlighted {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px -4px rgba(245, 158, 11, 0.5);
+            border-color: #fbbf24 !important;
+            background-color: rgba(217, 119, 6, 0.2) !important;
+        }
+        .progress-bar-fill {
+            transition: width 0.5s ease-in-out;
+        }
+        .cooldown-ring {
+            transition: stroke-dashoffset 0.1s linear;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d97706;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-amber-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-amber-950/90 backdrop-blur border-b border-amber-800/50 p-3 sm:p-4 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center text-2xl shadow-lg border-2 border-amber-300">
+                    🗿
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-amber-200 leading-tight">Prasejarah Hand Quest</h1>
+                    <p class="text-xs text-amber-400/80 hidden sm:block">Sejarah Tahun 4 • Kawalan AI & Isyarat Tangan</p>
+                </div>
+            </div>
+
+            <!-- Stats & Controls -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <!-- Score Counter -->
+                <div class="bg-amber-900/60 border border-amber-700/60 px-3 py-1.5 rounded-xl flex items-center space-x-2">
+                    <i class="fa-solid fa-star text-amber-400 text-lg animate-pulse"></i>
+                    <div>
+                        <span class="text-[10px] text-amber-300 block leading-none font-bold">MATA</span>
+                        <span id="score-display" class="text-lg font-bold text-white font-title leading-none">0</span>
+                    </div>
+                </div>
+
+                <!-- Keyboard shortcuts info modal button -->
+                <button onclick="toggleKeyGuideModal()" class="w-10 h-10 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-600 flex items-center justify-center text-amber-300 transition" title="Panduan Papan Kekunci">
+                    <i class="fa-solid fa-keyboard"></i>
+                </button>
+
+                <!-- Sound Toggle -->
+                <button id="sound-btn" onclick="toggleSound()" class="w-10 h-10 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-600 flex items-center justify-center text-amber-400 transition" title="Buka/Tutup Bunyi">
+                    <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+                </button>
+
+                <!-- Camera Toggle Button -->
+                <button id="camera-toggle-btn" onclick="toggleCameraMode()" class="px-3 py-2 rounded-xl bg-amber-700 hover:bg-amber-600 border border-amber-500 text-xs font-bold flex items-center space-x-2 transition shadow-md">
+                    <i class="fa-solid fa-camera"></i>
+                    <span id="camera-btn-text" class="hidden sm:inline">Aktifkan Kamera AI</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Google Sites Embedded Detection Notice Banner (Shown only inside iFrames) -->
+    <div id="iframe-notice-bar" class="bg-amber-900/90 border-b border-amber-600 text-amber-100 px-4 py-2 text-xs flex flex-wrap justify-between items-center gap-2 hidden">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-circle-info text-amber-400 text-base"></i>
+            <span><strong>Mod Benam Google Sites:</strong> Kebenaran kamera disekat oleh Google Sites. Untuk main dengan kamera, sila buka dalam Tab Baharu.</span>
+        </div>
+        <button onclick="openInNewTab()" class="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-stone-950 font-bold rounded-lg shadow text-xs transition">
+            <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Buka Tab Baharu
+        </button>
+    </div>
+
+    <!-- Main Game Viewport -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col md:flex-row gap-6 items-stretch">
+        
+        <!-- Left Side: Interactive Game Area -->
+        <section class="flex-grow flex flex-col bg-stone-900/80 border-2 border-amber-900/60 rounded-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden backdrop-blur-sm min-h-[500px]">
+            
+            <!-- Progress Bar -->
+            <div id="progress-container" class="w-full bg-stone-800 h-3 rounded-full overflow-hidden mb-4 border border-stone-700 hidden">
+                <div id="progress-bar" class="progress-bar-fill bg-gradient-to-r from-amber-500 to-yellow-400 h-full w-0"></div>
+            </div>
+
+            <!-- Dynamic Game Stage Container -->
+            <div id="stage-container" class="flex-grow flex flex-col justify-center items-center relative z-10 my-auto w-full">
+                <!-- Content injected dynamically -->
+            </div>
+
+            <!-- Feedback Overlay Modal -->
+            <div id="feedback-overlay" class="absolute inset-0 bg-stone-950/90 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center opacity-0 pointer-events-none transition-opacity duration-300">
+                <div id="feedback-icon" class="text-6xl sm:text-8xl mb-4"></div>
+                <h3 id="feedback-title" class="text-2xl sm:text-4xl font-bold font-title mb-2"></h3>
+                <p id="feedback-msg" class="text-base sm:text-lg text-stone-300 max-w-md mb-6"></p>
+                <button id="feedback-next-btn" onclick="hideFeedback()" class="px-8 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold font-title text-lg rounded-2xl shadow-lg hover:brightness-110 active:scale-95 transition">
+                    TERUSKAN <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+            <!-- Keyboard Shortcuts Helper Overlay Modal -->
+            <div id="key-guide-overlay" class="absolute inset-0 bg-stone-950/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 opacity-0 pointer-events-none transition-opacity duration-300">
+                <h3 class="text-2xl font-bold font-title text-amber-300 mb-4">⌨️ Kawalan Papan Kekunci (Alternatif)</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-stone-200 max-w-lg w-full mb-6">
+                    <div class="bg-stone-800 p-3 rounded-xl border border-stone-700 flex justify-between items-center">
+                        <span>Pilihan 1 / Mula:</span>
+                        <kbd class="px-2 py-1 bg-amber-900 border border-amber-600 rounded text-amber-200 font-mono font-bold">Tekan 1</kbd>
+                    </div>
+                    <div class="bg-stone-800 p-3 rounded-xl border border-stone-700 flex justify-between items-center">
+                        <span>Pilihan 2:</span>
+                        <kbd class="px-2 py-1 bg-amber-900 border border-amber-600 rounded text-amber-200 font-mono font-bold">Tekan 2</kbd>
+                    </div>
+                    <div class="bg-stone-800 p-3 rounded-xl border border-stone-700 flex justify-between items-center">
+                        <span>Minta Petunjuk:</span>
+                        <kbd class="px-2 py-1 bg-amber-900 border border-amber-600 rounded text-amber-200 font-mono font-bold">Tekan H</kbd>
+                    </div>
+                    <div class="bg-stone-800 p-3 rounded-xl border border-stone-700 flex justify-between items-center">
+                        <span>Sahkan Pilihan:</span>
+                        <kbd class="px-2 py-1 bg-amber-900 border border-amber-600 rounded text-amber-200 font-mono font-bold">Space / Enter</kbd>
+                    </div>
+                </div>
+                <button onclick="toggleKeyGuideModal()" class="px-6 py-2 bg-amber-600 hover:bg-amber-500 font-bold rounded-xl text-white">Tutup</button>
+            </div>
+        </section>
+
+        <!-- Right Side: AI Hand Tracking & Camera Preview -->
+        <aside class="w-full md:w-80 lg:w-96 flex flex-col gap-4">
+            
+            <!-- Camera & AI Tracking Container -->
+            <div class="bg-stone-900/90 border-2 border-amber-900/60 rounded-3xl p-4 shadow-xl flex flex-col items-center relative">
+                
+                <!-- Status Banner Header -->
+                <div class="w-full flex justify-between items-center mb-2 text-xs">
+                    <span id="cam-status-badge" class="font-bold flex items-center space-x-1.5 text-stone-400">
+                        <span id="cam-status-dot" class="w-2.5 h-2.5 rounded-full bg-stone-500 inline-block"></span>
+                        <span id="cam-status-text">Kamera Dimatikan</span>
+                    </span>
+                    <span id="hand-status-tag" class="text-[11px] font-semibold text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60">
+                        Tangan: Tidak Dikesan
+                    </span>
+                </div>
+
+                <!-- Webcam Video + Canvas Viewport -->
+                <div class="relative w-full aspect-video bg-stone-950 rounded-2xl overflow-hidden border border-stone-800 flex items-center justify-center">
+                    
+                    <!-- Hidden HTML Video Element for Camera Input -->
+                    <video id="webcam" class="hidden" playsinline muted></video>
+
+                    <!-- Realtime Canvas Render Output -->
+                    <canvas id="output-canvas" class="w-full h-full object-cover transform -scale-x-100"></canvas>
+
+                    <!-- Camera State Placeholder & Error Screen -->
+                    <div id="cam-placeholder" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-stone-950/95 z-10">
+                        <i id="cam-placeholder-icon" class="fa-solid fa-video-slash text-4xl text-stone-600 mb-2"></i>
+                        <p id="cam-placeholder-text" class="text-xs text-stone-400 leading-relaxed mb-3">
+                            Kamera tidak aktif. Klik butang di bawah untuk mengaktifkan AI Hand Tracking.
+                        </p>
+                        <button id="cam-start-btn" onclick="enableCamera()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow-lg flex items-center space-x-1.5">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>Aktifkan Kamera Web</span>
+                        </button>
+                    </div>
+
+                    <!-- Gesture Hold Cooldown Visual Indicator Ring -->
+                    <div id="gesture-hold-indicator" class="absolute bottom-3 right-3 bg-stone-900/90 rounded-full p-2 border border-amber-500/50 shadow-lg flex items-center justify-center hidden z-20">
+                        <svg class="w-8 h-8 transform -rotate-90">
+                            <circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="3" class="text-stone-700" fill="transparent" />
+                            <circle id="cooldown-circle" cx="16" cy="16" r="12" stroke="currentColor" stroke-width="3" class="text-amber-400 cooldown-ring" fill="transparent" stroke-dasharray="75.39" stroke-dashoffset="75.39" />
+                        </svg>
+                        <span id="gesture-emoji-mini" class="absolute text-sm">🖐️</span>
+                    </div>
+                </div>
+
+                <!-- Active Recognized Gesture Bar -->
+                <div id="gesture-banner" class="w-full mt-3 bg-stone-950 border border-amber-900/60 rounded-xl p-2 text-center text-xs">
+                    <span class="text-stone-400">Gerak Isyarat Dikesan: </span>
+                    <span id="current-gesture-name" class="font-bold text-amber-300 font-title text-sm ml-1">Tiada</span>
+                </div>
+            </div>
+
+            <!-- Gesture Controls Legend Guide -->
+            <div class="bg-stone-900/90 border-2 border-amber-900/60 rounded-3xl p-4 shadow-xl flex-grow flex flex-col">
+                <h3 class="text-xs font-bold text-amber-300 font-title mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-hand-sparkles mr-1.5 text-amber-400"></i> PANDUAN ISYARAT TANGAN</span>
+                    <span class="text-[10px] text-stone-400 font-normal">Pegang 1 Saat</span>
+                </h3>
+
+                <div class="grid grid-cols-1 gap-2 text-xs flex-grow">
+                    <!-- Gesture Items -->
+                    <div id="badge-open_palm" class="gesture-badge bg-stone-800/80 border border-stone-700 rounded-xl p-2 flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-900/50 flex items-center justify-center text-lg shrink-0">🖐️</div>
+                        <div class="flex-grow">
+                            <p class="font-bold text-amber-200 text-xs">Tapak Tangan Terbuka</p>
+                            <p class="text-[10px] text-stone-400">Mula Permainan / Pilihan 1</p>
+                        </div>
+                    </div>
+
+                    <div id="badge-pointing" class="gesture-badge bg-stone-800/80 border border-stone-700 rounded-xl p-2 flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-900/50 flex items-center justify-center text-lg shrink-0">☝️</div>
+                        <div class="flex-grow">
+                            <p class="font-bold text-amber-200 text-xs">Jari Telunjuk Menuding</p>
+                            <p class="text-[10px] text-stone-400">Memilih Pilihan 1 (Mod Alt)</p>
+                        </div>
+                    </div>
+
+                    <div id="badge-victory" class="gesture-badge bg-stone-800/80 border border-stone-700 rounded-xl p-2 flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-900/50 flex items-center justify-center text-lg shrink-0">✌️</div>
+                        <div class="flex-grow">
+                            <p class="font-bold text-amber-200 text-xs">Dua Jari (Peace)</p>
+                            <p class="text-[10px] text-stone-400">Memilih Pilihan Kedua (2)</p>
+                        </div>
+                    </div>
+
+                    <div id="badge-thumbs_up" class="gesture-badge bg-stone-800/80 border border-stone-700 rounded-xl p-2 flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-900/50 flex items-center justify-center text-lg shrink-0">👍</div>
+                        <div class="flex-grow">
+                            <p class="font-bold text-amber-200 text-xs">Ibu Jari Ke Atas</p>
+                            <p class="text-[10px] text-stone-400">Sahkan Jawapan Dipilih</p>
+                        </div>
+                    </div>
+
+                    <div id="badge-fist" class="gesture-badge bg-stone-800/80 border border-stone-700 rounded-xl p-2 flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-900/50 flex items-center justify-center text-lg shrink-0">✊</div>
+                        <div class="flex-grow">
+                            <p class="font-bold text-amber-200 text-xs">Penumbuk Genggam</p>
+                            <p class="text-[10px] text-stone-400">Minta Petunjuk Soalan</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2 pt-2 border-t border-stone-800 text-[10px] text-stone-400 text-center">
+                    <i class="fa-solid fa-keyboard mr-1 text-amber-400"></i> Tetikus & papan kekunci juga disokong sepanjang masa.
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-amber-950/60 border-t border-amber-900/40 p-3 text-center text-xs text-amber-400/70">
+        <p>© 2026 Modul Sejarah Tahun 4 • Aplikasi Interaktif Zaman Prasejarah oleh Pakar Sejarah Digital</p>
+    </footer>
+
+    <!-- Main Game & AI Logic Scripts -->
+    <script>
+        // Global Game State
+        const state = {
+            currentLevel: 0, 
+            currentQuestionIndex: 0,
+            score: 0,
+            soundEnabled: true,
+            cameraActive: false,
+            cameraStarting: false,
+            lastGesture: 'NONE',
+            gestureHoldTimer: 0,
+            requiredHoldTime: 1000, // 1.0 second hold duration
+            cooldownActive: false,
+            cooldownTimer: null,
+            highlightedOption: 0,
+            hintShown: false,
+            isEmbeddedInIframe: false
+        };
+
+        // Detect if app is running inside an iframe (e.g. Google Sites)
+        function checkIframeEnvironment() {
+            try {
+                return window.self !== window.top;
+            } catch (e) {
+                return true;
+            }
+        }
+
+        function openInNewTab() {
+            window.open(window.location.href, '_blank');
+        }
+
+        // Sound Effects Controller using Tone.js
+        let synth, polySynth;
+        function initAudio() {
+            try {
+                synth = new Tone.Synth().toDestination();
+                polySynth = new Tone.PolySynth().toDestination();
+            } catch (e) {
+                console.warn("Tone.js failed to initialize:", e);
+            }
+        }
+
+        function playSound(type) {
+            if (!state.soundEnabled) return;
+            try {
+                Tone.start();
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "8n");
+                } else if (type === 'correct') {
+                    polySynth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n");
+                } else if (type === 'wrong') {
+                    polySynth.triggerAttackRelease(["C3", "C#3"], "4n");
+                } else if (type === 'gesture') {
+                    synth.triggerAttackRelease("G4", "16n");
+                } else if (type === 'win') {
+                    polySynth.triggerAttackRelease(["C4", "E4", "G4", "B4", "C5"], "2n");
+                }
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (state.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high';
+                playSound('click');
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark';
+            }
+        }
+
+        function toggleKeyGuideModal() {
+            const overlay = document.getElementById('key-guide-overlay');
+            if (overlay.classList.contains('opacity-0')) {
+                overlay.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // Educational Dataset - Year 4 Malaysian History Curriculum
+        const gameData = {
+            stage1: [
+                {
+                    id: 's1_1',
+                    title: 'Memburu Binatang',
+                    type: 'EKONOMI',
+                    imgSvg: `<svg viewBox="0 0 200 150" class="w-full h-32 sm:h-40"><path d="M20,130 L180,130 L160,80 L120,90 L80,60 L40,110 Z" fill="#4a3b32"/><circle cx="150" cy="40" r="15" fill="#f59e0b"/><polygon points="70,90 110,60 100,110" fill="#8d5b4c"/><path d="M60,100 L120,70" stroke="#d97706" stroke-width="4"/><circle cx="60" cy="100" r="8" fill="#d97706"/><circle cx="120" cy="70" r="5" fill="#ef4444"/></svg>`,
+                    description: 'Mendapatkan sumber makanan daging dengan memburu haiwan di hutan.'
+                },
+                {
+                    id: 's1_2',
+                    title: 'Menangkap Ikan',
+                    type: 'EKONOMI',
+                    imgSvg: `<svg viewBox="0 0 200 150" class="w-full h-32 sm:h-40"><rect width="200" height="150" fill="#1e3a8a" rx="10"/><path d="M0,100 Q50,80 100,100 T200,100 L200,150 L0,150 Z" fill="#2563eb"/><path d="M60,90 Q80,70 100,90 Q80,100 60,90 Z" fill="#f59e0b"/><polygon points="100,90 115,80 115,100" fill="#f59e0b"/><line x1="40" y1="40" x2="70" y2="85" stroke="#e5e7eb" stroke-width="3"/></svg>`,
+                    description: 'Menggunakan serampang kayu atau batu untuk menangkap ikan di sungai.'
+                },
+                {
+                    id: 's1_3',
+                    title: 'Bercucuk Tanam',
+                    type: 'EKONOMI',
+                    imgSvg: `<svg viewBox="0 0 200 150" class="w-full h-32 sm:h-40"><rect width="200" height="150" fill="#14532d" rx="10"/><path d="M30,120 Q30,80 50,70 Q70,80 70,120 Z" fill="#22c55e"/><path d="M90,120 Q90,60 110,50 Q130,60 130,120 Z" fill="#16a34a"/><path d="M150,120 Q150,90 165,80 Q180,90 180,120 Z" fill="#4ade80"/><circle cx="110" cy="40" r="12" fill="#facc15"/></svg>`,
+                    description: 'Menanam tanaman seperti padi liar dan ubi untuk bekalan makanan tetap.'
+                },
+                {
+                    id: 's1_4',
+                    title: 'Hidup Berkumpulan',
+                    type: 'SOSIAL',
+                    imgSvg: `<svg viewBox="0 0 200 150" class="w-full h-32 sm:h-40"><path d="M10,140 C50,60 150,60 190,140 Z" fill="#78350f"/><circle cx="70" cy="100" r="10" fill="#fca5a5"/><circle cx="100" cy="90" r="10" fill="#fca5a5"/><circle cx="130" cy="100" r="10" fill="#fca5a5"/><path d="M95,115 L105,115 L100,95 Z" fill="#ef4444"/><polygon points="90,120 110,120 100,105" fill="#f59e0b"/></svg>`,
+                    description: 'Tinggal bersama di dalam gua atau penempatan awal untuk keselamatan.'
+                }
+            ],
+            stage2: [
+                {
+                    question: 'Sekumpulan manusia bekerjasama memburu binatang di hutan. Apakah aspek Utama aktiviti kerjasama ini?',
+                    options: ['KEGIATAN SOSIAL', 'KEGIATAN EKONOMI'],
+                    correct: 0,
+                    explanation: 'Kerjasama dan pembahagian tugas antara ahli kumpulan menggambarkan kegiatan SOSIAL.',
+                    hint: 'Fokus pada perkataan "bekerjasama dan hidup berkumpulan".'
+                },
+                {
+                    question: 'Manusia Zaman Prasejarah menangkap ikan di sungai untuk dijadikan sumber makanan harian.',
+                    options: ['KEGIATAN SOSIAL', 'KEGIATAN EKONOMI'],
+                    correct: 1,
+                    explanation: 'Mendapatkan makanan atau barangan untuk keperluan hidup ialah kegiatan EKONOMI.',
+                    hint: 'Fokus pada usaha mendapatkan sumber makanan.'
+                },
+                {
+                    question: 'Ahli masyarakat berkongsi hasil buruan dan makanan bersama-sama di dalam gua.',
+                    options: ['KEGIATAN SOSIAL', 'KEGIATAN EKONOMI'],
+                    correct: 0,
+                    explanation: 'Amalan berkongsi makanan mewujudkan hubungan rapat dalam masyarakat (SOSIAL).',
+                    hint: 'Menguatkan silaturahim dan hubungan sesama ahli kumpulan.'
+                },
+                {
+                    question: 'Aktiviti menternak binatang dan bercucuk tanam bagi menghasilkan bekalan makanan.',
+                    options: ['KEGIATAN SOSIAL', 'KEGIATAN EKONOMI'],
+                    correct: 1,
+                    explanation: 'Menghasilkan sendiri bekalan makanan ialah perkembangan kegiatan EKONOMI.',
+                    hint: 'Pengeluaran hasil makanan untuk kelangsungan hidup.'
+                }
+            ],
+            stage3: [
+                {
+                    prompt: 'Pilih aktiviti yang menunjukkan KEGIATAN EKONOMI masyarakat prasejarah:',
+                    options: [
+                        { text: 'Mengutip Hasil Hutan', correct: true, icon: '🧺' },
+                        { text: 'Gotong-royong Membina Tempat Tinggal', correct: false, icon: '🏠' }
+                    ],
+                    hint: 'Cari aktiviti yang berkaitan dengan mengumpul makanan dari alam semula jadi.'
+                },
+                {
+                    prompt: 'Pilih aktiviti yang menunjukkan HUBUNGAN SOSIAL:',
+                    options: [
+                        { text: 'Membuat Alat Batu', correct: false, icon: '🪨' },
+                        { text: 'Hidup Secara Berkumpulan', correct: true, icon: '👨‍👩‍👧‍👦' }
+                    ],
+                    hint: 'Cari aktiviti yang melibatkan corak hidup bersama ramai orang.'
+                },
+                {
+                    prompt: 'Manakah antara berikut aktiviti MENDAPATKAN MAKANAN (Ekonomi)?',
+                    options: [
+                        { text: 'Menangkap Ikan di Sungai', correct: true, icon: '🐟' },
+                        { text: 'Upacara Perkhemahan/Pengebumian', correct: false, icon: '🔥' }
+                    ],
+                    hint: 'Pilih aktiviti mencari rezeki di air.'
+                }
+            ],
+            stage4: [
+                {
+                    q: 'Manusia Zaman Neolitik mula tinggal menetap dan menjalankan aktiviti...',
+                    choices: ['Bercucuk tanam & Menternak', 'Membeli di pasar moden'],
+                    ans: 0,
+                    exp: 'Zaman Neolitik menyaksikan pembaharuan bercucuk tanam dan penternakan.'
+                },
+                {
+                    q: 'Mengapakah manusia prasejarah hidup secara berkumpulan?',
+                    choices: ['Untuk keselamatan & kerjasama', 'Untuk bersaing sesama sendiri'],
+                    ans: 0,
+                    exp: 'Hidup berkumpulan melindungi mereka daripada ancaman haiwan liar.'
+                },
+                {
+                    q: 'Aktiviti bertukar barang antara satu sama lain dikenali sebagai sistem...',
+                    choices: ['Sistem Barter (Ekonomi)', 'Sistem Cukai Moden'],
+                    ans: 0,
+                    exp: 'Sistem Barter ialah kegiatan ekonomi awal perdagangan prasejarah.'
+                },
+                {
+                    q: 'Antara berikut, yang manakah BUKAN kegiatan ekonomi masyarakat prasejarah?',
+                    choices: ['Menggunakan wang kertas', 'Mengutip hasil hutan'],
+                    ans: 0,
+                    exp: 'Wang kertas belum wujud pada Zaman Prasejarah.'
+                },
+                {
+                    q: 'Gotong-royong dan perkongsian makanan dalam masyarakat prasejarah tergolong dalam aspek...',
+                    choices: ['Kegiatan Sosial', 'Kegiatan Perindustrian'],
+                    ans: 0,
+                    exp: 'Gotong-royong ialah amalan sosial yang memupuk perpaduan.'
+                }
+            ]
+        };
+
+        function initGame() {
+            initAudio();
+            setupKeyboardListeners();
+            state.isEmbeddedInIframe = checkIframeEnvironment();
+
+            if (state.isEmbeddedInIframe) {
+                document.getElementById('iframe-notice-bar').classList.remove('hidden');
+                renderIframeLauncherScreen();
+            } else {
+                renderStartScreen();
+            }
+        }
+
+        function updateScore(points) {
+            state.score += points;
+            document.getElementById('score-display').textContent = state.score;
+        }
+
+        function setProgressBar(percent) {
+            const container = document.getElementById('progress-container');
+            const bar = document.getElementById('progress-bar');
+            container.classList.remove('hidden');
+            bar.style.width = percent + '%';
+        }
+
+        // Render Special Launcher Screen when embedded in Google Sites iFrame
+        function renderIframeLauncherScreen() {
+            state.currentLevel = 0;
+            const container = document.getElementById('stage-container');
+            
+            container.innerHTML = `
+                <div class="text-center max-w-2xl mx-auto py-4">
+                    <div class="inline-block p-4 rounded-full bg-amber-500/20 border-2 border-amber-400 mb-4">
+                        <span class="text-5xl sm:text-6xl">📷</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-4xl font-bold font-title text-amber-300 mb-3 tracking-wide">
+                        Sedia Untuk Kawalan AI Tangan?
+                    </h2>
+                    <p class="text-amber-100/90 text-xs sm:text-sm mb-6 leading-relaxed">
+                        Kerana sekatan keselamatan di Google Sites (iFrame), kamera tidak boleh diakses secara langsung di dalam halaman ini. Sila tekan butang di bawah untuk membuka permainan dalam <strong>Tab Baharu</strong> supaya kamera AI dapat diaktifkan.
+                    </p>
+
+                    <button onclick="openInNewTab()" class="px-8 py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-title font-bold text-xl rounded-2xl shadow-xl transform hover:scale-105 active:scale-95 transition flex items-center justify-center mx-auto space-x-3 mb-4">
+                        <span>🚀 MULA PERMAINAN — BUKA DALAM TAB BAHARU</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </button>
+
+                    <div class="border-t border-stone-800 pt-4 mt-4">
+                        <p class="text-xs text-stone-400 mb-3">Atau main secara terus di sini menggunakan Tetikus/Papan Kekunci (Tanpa Kamera):</p>
+                        <button onclick="renderStartScreen()" class="px-5 py-2.5 bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-600 font-bold text-xs rounded-xl transition">
+                            Teruskan Dalam Mod Tetikus
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render Stage 0: Start Screen
+        function renderStartScreen() {
+            state.currentLevel = 0;
+            state.highlightedOption = 0;
+            document.getElementById('progress-container').classList.add('hidden');
+            const container = document.getElementById('stage-container');
+            
+            container.innerHTML = `
+                <div class="text-center max-w-2xl mx-auto py-4">
+                    <div class="inline-block p-4 rounded-full bg-amber-500/20 border-2 border-amber-400 mb-4 animate-bounce">
+                        <span class="text-5xl sm:text-6xl">🏺</span>
+                    </div>
+                    <h2 class="text-3xl sm:text-5xl font-bold font-title text-amber-300 mb-3 tracking-wide">
+                        PRASEJARAH HAND QUEST
+                    </h2>
+                    <p class="text-amber-100/90 text-sm sm:text-base mb-6 leading-relaxed">
+                        Terokai kehidupan masyarakat Zaman Prasejarah! Pelajari kegiatan <span class="text-amber-400 font-bold underline">Sosial</span> dan <span class="text-yellow-400 font-bold underline">Ekonomi</span> mereka menggunakan AI Isyarat Tangan atau Tetikus.
+                    </p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8 text-xs font-bold">
+                        <div class="bg-stone-800/90 p-3 rounded-2xl border border-amber-800/60 flex flex-col items-center">
+                            <span class="text-2xl mb-1">🏹</span>
+                            <span class="text-amber-200">Memburu & Menangkap Ikan</span>
+                        </div>
+                        <div class="bg-stone-800/90 p-3 rounded-2xl border border-amber-800/60 flex flex-col items-center">
+                            <span class="text-2xl mb-1">🌾</span>
+                            <span class="text-amber-200">Bercucuk Tanam</span>
+                        </div>
+                        <div class="bg-stone-800/90 p-3 rounded-2xl border border-amber-800/60 flex flex-col items-center">
+                            <span class="text-2xl mb-1">🤝</span>
+                            <span class="text-amber-200">Hidup Berkumpulan</span>
+                        </div>
+                        <div class="bg-stone-800/90 p-3 rounded-2xl border border-amber-800/60 flex flex-col items-center">
+                            <span class="text-2xl mb-1">🤖</span>
+                            <span class="text-amber-200">Kawalan AI Tangan</span>
+                        </div>
+                    </div>
+
+                    <button onclick="startLevel1()" class="px-8 py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 font-title font-bold text-xl rounded-2xl shadow-xl transform hover:scale-105 active:scale-95 transition flex items-center justify-center mx-auto space-x-3 group">
+                        <span>🖐️ MULA PERMAINAN</span>
+                        <i class="fa-solid fa-play group-hover:translate-x-1 transition"></i>
+                    </button>
+                    <p class="text-[11px] text-stone-400 mt-3">Tunjukkan <span class="text-amber-300 font-bold">Tapak Tangan Terbuka 🖐️</span> atau tekan [1] untuk bermula.</p>
+                </div>
+            `;
+        }
+
+        // Level 1: Kenali Kehidupan Prasejarah
+        function startLevel1() {
+            state.currentLevel = 1;
+            state.currentQuestionIndex = 0;
+            playSound('click');
+            setProgressBar(25);
+
+            const container = document.getElementById('stage-container');
+            container.innerHTML = `
+                <div class="w-full">
+                    <div class="text-center mb-6">
+                        <span class="bg-amber-900/80 text-amber-300 text-xs px-3 py-1 rounded-full font-bold border border-amber-700">PERINGKAT 1</span>
+                        <h3 class="text-2xl sm:text-3xl font-bold font-title text-amber-200 mt-1">Kenali Kehidupan Prasejarah</h3>
+                        <p class="text-xs sm:text-sm text-stone-300">Terokai kegiatan masyarakat awal Zaman Prasejarah.</p>
+                    </div>
+
+                    <div id="cards-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        ${gameData.stage1.map((item, idx) => `
+                            <div onclick="selectStage1Card(${idx})" class="option-card bg-stone-800/90 border-2 border-stone-700 hover:border-amber-500 rounded-2xl p-4 cursor-pointer flex flex-col items-center text-center">
+                                ${item.imgSvg}
+                                <h4 class="font-bold text-amber-300 font-title text-lg mt-2">${item.title}</h4>
+                                <span class="text-[10px] bg-amber-950 text-amber-400 px-2 py-0.5 rounded font-bold border border-amber-800/60 mb-1">${item.type}</span>
+                                <p class="text-xs text-stone-300">${item.description}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="text-center">
+                        <button onclick="startLevel2()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-title font-bold rounded-xl shadow-lg transition">
+                            TERUSKAN KE PERINGKAT 2 <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectStage1Card(idx) {
+            playSound('click');
+            updateScore(10);
+            showFeedback('✨ FAKTA PRASEJARAH', gameData.stage1[idx].title + ': ' + gameData.stage1[idx].description, true, () => {});
+        }
+
+        // Level 2: Sosial atau Ekonomi?
+        function startLevel2() {
+            state.currentLevel = 2;
+            state.currentQuestionIndex = 0;
+            state.highlightedOption = 0;
+            playSound('click');
+            renderStage2Question();
+        }
+
+        function renderStage2Question() {
+            setProgressBar(25 + (state.currentQuestionIndex / gameData.stage2.length) * 25);
+            const q = gameData.stage2[state.currentQuestionIndex];
+            const container = document.getElementById('stage-container');
+
+            container.innerHTML = `
+                <div class="w-full max-w-xl text-center">
+                    <span class="bg-amber-900/80 text-amber-300 text-xs px-3 py-1 rounded-full font-bold border border-amber-700">
+                        PERINGKAT 2 (${state.currentQuestionIndex + 1}/${gameData.stage2.length})
+                    </span>
+                    <h3 class="text-xl sm:text-2xl font-bold font-title text-amber-200 mt-2 mb-4 leading-snug">
+                        "${q.question}"
+                    </h3>
+
+                    <div id="hint-box" class="bg-stone-800/80 border border-amber-500/40 rounded-xl p-3 mb-4 text-xs text-amber-300 hidden">
+                        💡 <strong>Petunjuk:</strong> ${q.hint}
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <button id="opt-0" onclick="highlightOption(0)" class="option-card bg-stone-800/90 border-2 border-stone-700 p-5 rounded-2xl flex flex-col items-center justify-center transition ${state.highlightedOption === 0 ? 'highlighted' : ''}">
+                            <span class="text-4xl mb-2">🤝</span>
+                            <span class="font-title font-bold text-lg text-amber-300">${q.options[0]}</span>
+                            <span class="text-[10px] text-stone-400 mt-1">🖐️ / ☝️ (Pilihan 1)</span>
+                        </button>
+
+                        <button id="opt-1" onclick="highlightOption(1)" class="option-card bg-stone-800/90 border-2 border-stone-700 p-5 rounded-2xl flex flex-col items-center justify-center transition ${state.highlightedOption === 1 ? 'highlighted' : ''}">
+                            <span class="text-4xl mb-2">🌾</span>
+                            <span class="font-title font-bold text-lg text-yellow-300">${q.options[1]}</span>
+                            <span class="text-[10px] text-stone-400 mt-1">✌️ (Pilihan 2)</span>
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between items-center text-xs text-stone-400 bg-stone-950/60 p-2.5 rounded-xl border border-stone-800">
+                        <span>Genggam ✊ Petunjuk</span>
+                        <button onclick="confirmSelectedAnswer()" class="px-3 py-1 bg-amber-600 hover:bg-amber-500 font-bold rounded-lg text-white">👍 Sahkan Jawapan</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function confirmSelectedAnswer() {
+            if (state.currentLevel === 2) {
+                answerStage2(state.highlightedOption);
+            }
+        }
+
+        function answerStage2(choice) {
+            const q = gameData.stage2[state.currentQuestionIndex];
+            const isCorrect = (choice === q.correct);
+
+            if (isCorrect) {
+                playSound('correct');
+                updateScore(15);
+                showFeedback('SYABAS! JAWAPAN BETUL 🎉', q.explanation, true, () => {
+                    state.currentQuestionIndex++;
+                    state.highlightedOption = 0;
+                    if (state.currentQuestionIndex < gameData.stage2.length) {
+                        renderStage2Question();
+                    } else {
+                        startLevel3();
+                    }
+                });
+            } else {
+                playSound('wrong');
+                showFeedback('CUBA LAGI! ❌', 'Jawapan kurang tepat. ' + q.explanation, false, () => {});
+            }
+        }
+
+        // Level 3: Cabaran Isyarat Tangan
+        function startLevel3() {
+            state.currentLevel = 3;
+            state.currentQuestionIndex = 0;
+            playSound('click');
+            renderStage3Question();
+        }
+
+        function renderStage3Question() {
+            setProgressBar(50 + (state.currentQuestionIndex / gameData.stage3.length) * 25);
+            const q = gameData.stage3[state.currentQuestionIndex];
+            const container = document.getElementById('stage-container');
+
+            container.innerHTML = `
+                <div class="w-full max-w-xl text-center">
+                    <span class="bg-amber-900/80 text-amber-300 text-xs px-3 py-1 rounded-full font-bold border border-amber-700">
+                        PERINGKAT 3: CABARAN ISYARAT TANGAN (${state.currentQuestionIndex + 1}/${gameData.stage3.length})
+                    </span>
+                    <h3 class="text-xl sm:text-2xl font-bold font-title text-amber-200 mt-2 mb-4">
+                        ${q.prompt}
+                    </h3>
+
+                    <div id="hint-box" class="bg-stone-800/80 border border-amber-500/40 rounded-xl p-3 mb-4 text-xs text-amber-300 hidden">
+                        💡 <strong>Petunjuk:</strong> ${q.hint}
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        ${q.options.map((opt, idx) => `
+                            <button id="opt-${idx}" onclick="answerStage3(${idx})" class="option-card bg-stone-800/90 border-2 border-stone-700 hover:border-amber-400 p-5 rounded-2xl flex flex-col items-center justify-center transition">
+                                <span class="text-4xl mb-2">${opt.icon}</span>
+                                <span class="font-title font-bold text-amber-200 text-sm">${opt.text}</span>
+                                <span class="text-[10px] text-stone-400 mt-2">Isyarat: ${idx === 0 ? '🖐️ / ☝️ (Pilihan 1)' : '✌️ (Pilihan 2)'}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function answerStage3(idx) {
+            const q = gameData.stage3[state.currentQuestionIndex];
+            const selected = q.options[idx];
+
+            if (selected.correct) {
+                playSound('correct');
+                updateScore(20);
+                showFeedback('TEPAT SEKALI! ⭐', 'Tindakan yang betul mengikut konsep sejarah.', true, () => {
+                    state.currentQuestionIndex++;
+                    if (state.currentQuestionIndex < gameData.stage3.length) {
+                        renderStage3Question();
+                    } else {
+                        startLevel4();
+                    }
+                });
+            } else {
+                playSound('wrong');
+                showFeedback('KURANG TEPAT ❌', 'Sila baca soalan dan cuba pilihan satu lagi.', false, () => {});
+            }
+        }
+
+        // Level 4: Misi Ahli Sejarah Cilik
+        function startLevel4() {
+            state.currentLevel = 4;
+            state.currentQuestionIndex = 0;
+            playSound('click');
+            renderStage4Question();
+        }
+
+        function renderStage4Question() {
+            setProgressBar(75 + (state.currentQuestionIndex / gameData.stage4.length) * 25);
+            const q = gameData.stage4[state.currentQuestionIndex];
+            const container = document.getElementById('stage-container');
+
+            container.innerHTML = `
+                <div class="w-full max-w-xl text-center">
+                    <span class="bg-amber-900/80 text-amber-300 text-xs px-3 py-1 rounded-full font-bold border border-amber-700">
+                        PERINGKAT 4: MISI AHLI SEJARAH CILIK (${state.currentQuestionIndex + 1}/${gameData.stage4.length})
+                    </span>
+                    <h3 class="text-lg sm:text-xl font-bold font-title text-amber-200 mt-2 mb-4 leading-snug">
+                        ${q.q}
+                    </h3>
+
+                    <div class="grid grid-cols-1 gap-3 mb-6">
+                        ${q.choices.map((choice, idx) => `
+                            <button id="opt-${idx}" onclick="answerStage4(${idx})" class="option-card bg-stone-800/90 border-2 border-stone-700 hover:border-amber-400 p-4 rounded-xl text-left font-bold text-amber-200 text-sm flex items-center justify-between transition">
+                                <span>${idx + 1}. ${choice}</span>
+                                <span class="text-xs text-stone-400">${idx === 0 ? '🖐️ / ☝️' : '✌️'}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function answerStage4(idx) {
+            const q = gameData.stage4[state.currentQuestionIndex];
+            if (idx === q.ans) {
+                playSound('correct');
+                updateScore(20);
+                showFeedback('TAHNIAH! BETUL 🎉', q.exp, true, () => {
+                    state.currentQuestionIndex++;
+                    if (state.currentQuestionIndex < gameData.stage4.length) {
+                        renderStage4Question();
+                    } else {
+                        renderEndScreen();
+                    }
+                });
+            } else {
+                playSound('wrong');
+                showFeedback('TIDAK TEPAT ❌', q.exp, false, () => {});
+            }
+        }
+
+        // Stage 5: End Game Summary
+        function renderEndScreen() {
+            state.currentLevel = 5;
+            setProgressBar(100);
+            playSound('win');
+
+            const container = document.getElementById('stage-container');
+            container.innerHTML = `
+                <div class="text-center max-w-xl mx-auto py-4">
+                    <div class="text-6xl mb-2 animate-bounce">🏆</div>
+                    <h2 class="text-3xl sm:text-4xl font-bold font-title text-amber-300 mb-1">
+                        TAHNIAH! PAKAR PRASEJARAH
+                    </h2>
+                    <p class="text-stone-300 text-sm mb-4">Anda telah berjaya menamatkan Misi Ahli Sejarah Cilik!</p>
+
+                    <div class="bg-gradient-to-b from-amber-950 to-stone-900 border-2 border-amber-500/80 rounded-3xl p-6 shadow-2xl mb-6 relative overflow-hidden">
+                        <div class="text-xs text-amber-400 uppercase tracking-widest font-bold mb-1">SIJIL PENCAPAIAN DIGITAL</div>
+                        <h4 class="text-2xl font-bold font-title text-amber-200 mb-3">AHLI SEJARAH CILIK PRASEJARAH</h4>
+                        
+                        <div class="bg-stone-900/80 rounded-2xl p-4 border border-amber-800/50 my-3 flex justify-around items-center">
+                            <div>
+                                <span class="text-xs text-stone-400 block">JUMLAH MATA</span>
+                                <span class="text-3xl font-bold font-title text-amber-400">${state.score}</span>
+                            </div>
+                            <div class="h-8 w-px bg-stone-700"></div>
+                            <div>
+                                <span class="text-xs text-stone-400 block">ANUGERAH</span>
+                                <span class="text-sm font-bold text-yellow-300">Pakar Kehidupan Prasejarah</span>
+                            </div>
+                        </div>
+
+                        <div class="text-left text-xs text-stone-300 space-y-1 mt-4 bg-stone-950/60 p-3 rounded-xl border border-stone-800">
+                            <p class="font-bold text-amber-300 mb-1">📌 Rumusan Pembelajaran Sejarah Tahun 4:</p>
+                            <p>• <strong>Kegiatan Ekonomi:</strong> Memburu, menangkap ikan, bercucuk tanam, menternak haiwan untuk keperluan hidup.</p>
+                            <p>• <strong>Kegiatan Sosial:</strong> Hidup berkumpulan di gua/penempatan, bergotong-royong, berkongsi makanan.</p>
+                        </div>
+                    </div>
+
+                    <button onclick="initGame()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-title font-bold rounded-xl shadow-lg transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> MAIN SEMULA
+                    </button>
+                </div>
+            `;
+        }
+
+        // Feedback Modal Utility
+        let onFeedbackCloseCallback = null;
+        function showFeedback(title, msg, isSuccess, callback) {
+            const overlay = document.getElementById('feedback-overlay');
+            const iconEl = document.getElementById('feedback-icon');
+            const titleEl = document.getElementById('feedback-title');
+            const msgEl = document.getElementById('feedback-msg');
+
+            iconEl.textContent = isSuccess ? '🌟' : '💡';
+            titleEl.textContent = title;
+            titleEl.className = `text-2xl sm:text-4xl font-bold font-title mb-2 ${isSuccess ? 'text-amber-400' : 'text-red-400'}`;
+            msgEl.textContent = msg;
+
+            onFeedbackCloseCallback = callback;
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function hideFeedback() {
+            const overlay = document.getElementById('feedback-overlay');
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+            if (onFeedbackCloseCallback) {
+                const cb = onFeedbackCloseCallback;
+                onFeedbackCloseCallback = null;
+                cb();
+            }
+        }
+
+        function triggerHint() {
+            const hintBox = document.getElementById('hint-box');
+            if (hintBox) {
+                hintBox.classList.remove('hidden');
+                playSound('click');
+            }
+        }
+
+        function highlightOption(index) {
+            state.highlightedOption = index;
+            document.querySelectorAll('.option-card').forEach((card, idx) => {
+                if (idx === index) {
+                    card.classList.add('highlighted');
+                } else {
+                    card.classList.remove('highlighted');
+                }
+            });
+        }
+
+        // Keyboard Navigation Fallback
+        function setupKeyboardListeners() {
+            window.addEventListener('keydown', (e) => {
+                const overlay = document.getElementById('feedback-overlay');
+                if (!overlay.classList.contains('opacity-0')) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        hideFeedback();
+                    }
+                    return;
+                }
+
+                if (e.key === '1') {
+                    if (state.currentLevel === 0) startLevel1();
+                    else if (state.currentLevel === 2) highlightOption(0);
+                    else if (state.currentLevel === 3) answerStage3(0);
+                    else if (state.currentLevel === 4) answerStage4(0);
+                } else if (e.key === '2') {
+                    if (state.currentLevel === 2) highlightOption(1);
+                    else if (state.currentLevel === 3) answerStage3(1);
+                    else if (state.currentLevel === 4) answerStage4(1);
+                } else if (e.key.toLowerCase() === 'h') {
+                    triggerHint();
+                } else if (e.key === ' ' || e.key === 'Enter') {
+                    if (state.currentLevel === 2) confirmSelectedAnswer();
+                }
+            });
+        }
+
+        // =========================================================================
+        // MEDIAPIPE AI HAND TRACKING & WEBCAM ENGINE (UPDATED WITH ERROR HANDLING)
+        // =========================================================================
+        let cameraStream = null;
+        let animationFrameId = null;
+        let handsInstance = null;
+
+        function updateCamStatus(statusType, textMsg) {
+            const dot = document.getElementById('cam-status-dot');
+            const text = document.getElementById('cam-status-text');
+            const btnText = document.getElementById('camera-btn-text');
+
+            if (text) text.textContent = textMsg;
+
+            if (statusType === 'active') {
+                if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse inline-block';
+                if (btnText) btnText.textContent = 'Matikan Kamera AI';
+            } else if (statusType === 'loading') {
+                if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-500 animate-ping inline-block';
+                if (btnText) btnText.textContent = 'Menghubungkan...';
+            } else if (statusType === 'error') {
+                if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500 inline-block';
+                if (btnText) btnText.textContent = 'Ralat Kamera';
+            } else {
+                if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-stone-500 inline-block';
+                if (btnText) btnText.textContent = 'Aktifkan Kamera AI';
+            }
+        }
+
+        function updateHandStatus(detected, gestureName = '') {
+            const handTag = document.getElementById('hand-status-tag');
+            const gestureTag = document.getElementById('current-gesture-name');
+
+            if (detected) {
+                if (handTag) {
+                    handTag.textContent = 'Tangan: Dikesan ✓';
+                    handTag.className = 'text-[11px] font-semibold text-green-400 bg-green-950/80 px-2 py-0.5 rounded border border-green-800/60';
+                }
+                if (gestureTag) gestureTag.textContent = gestureName;
+            } else {
+                if (handTag) {
+                    handTag.textContent = 'Tangan: Tidak Dikesan';
+                    handTag.className = 'text-[11px] font-semibold text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60';
+                }
+                if (gestureTag) gestureTag.textContent = 'Tiada';
+            }
+        }
+
+        function toggleCameraMode() {
+            if (state.cameraActive || state.cameraStarting) {
+                disableCamera();
+            } else {
+                enableCamera();
+            }
+        }
+
+        async function enableCamera() {
+            if (state.cameraActive || state.cameraStarting) return;
+
+            // Check if iframe blocks camera access before requesting
+            if (state.isEmbeddedInIframe) {
+                renderCameraIframeErrorScreen();
+                return;
+            }
+
+            state.cameraStarting = true;
+
+            const videoElement = document.getElementById('webcam');
+            const placeholder = document.getElementById('cam-placeholder');
+            const icon = document.getElementById('cam-placeholder-icon');
+            const text = document.getElementById('cam-placeholder-text');
+
+            placeholder.classList.remove('hidden');
+            icon.className = 'fa-solid fa-spinner animate-spin text-4xl text-amber-400 mb-2';
+            text.textContent = 'Meminta akses kamera & menyiapkan AI...';
+            updateCamStatus('loading', 'Meminta akses kamera');
+
+            try {
+                // Verify MediaPipe Hands JS library availability
+                if (typeof Hands === 'undefined') {
+                    throw new Error("Pustaka AI MediaPipe gagal dimuatkan daripada CDN. Sila semak sambungan internet anda.");
+                }
+
+                // Check MediaDevices API Support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Pelayar web anda tidak menyokong akses kamera (navigator.mediaDevices.getUserMedia).");
+                }
+
+                // Initialize MediaPipe Hands instance if not created yet
+                if (!handsInstance) {
+                    handsInstance = new Hands({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                    });
+
+                    handsInstance.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.6,
+                        minTrackingConfidence: 0.6
+                    });
+
+                    handsInstance.onResults(onHandResults);
+                }
+
+                // Request Webcam via HTML5 getUserMedia API
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: "user"
+                    },
+                    audio: false
+                });
+
+                videoElement.srcObject = cameraStream;
+                await videoElement.play();
+
+                state.cameraActive = true;
+                state.cameraStarting = false;
+                placeholder.classList.add('hidden');
+                updateCamStatus('active', 'Kamera Aktif');
+
+                // Continuous frame processing loop
+                async function processFrame() {
+                    if (state.cameraActive && handsInstance && videoElement.readyState >= 2) {
+                        try {
+                            await handsInstance.send({ image: videoElement });
+                        } catch (err) {
+                            console.warn("Ralat pemprosesan bingkai MediaPipe:", err);
+                        }
+                    }
+                    if (state.cameraActive) {
+                        animationFrameId = requestAnimationFrame(processFrame);
+                    }
+                }
+                processFrame();
+
+            } catch (err) {
+                state.cameraActive = false;
+                state.cameraStarting = false;
+                console.error("Camera Error Details:", err);
+                updateCamStatus('error', 'Ralat Kamera');
+
+                let errorMsg = 'Gagal mengakses kamera.';
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMsg = 'Akses kamera ditolak oleh pengguna/pelayar. Sila benarkan akses kamera pada tetapan alamat web ini.';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMsg = 'Tiada peranti kamera dikesan pada komputer/peranti anda.';
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMsg = 'Kamera sedang digunakan oleh aplikasi lain (seperti Zoom/Teams). Sila tutup aplikasi tersebut.';
+                } else if (err.name === 'SecurityError') {
+                    errorMsg = 'Akses kamera disekat atas faktor keselamatan (iFrame/Non-HTTPS).';
+                } else if (err.message) {
+                    errorMsg = err.message;
+                }
+
+                icon.className = 'fa-solid fa-triangle-exclamation text-4xl text-red-500 mb-2';
+                text.innerHTML = `
+                    <span class="text-red-300 font-bold block mb-1">Ralat Kamera:</span>
+                    <span class="text-stone-300 text-xs">${errorMsg}</span>
+                    <button onclick="openInNewTab()" class="mt-3 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-stone-950 font-bold rounded-lg text-xs transition inline-block">
+                        <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Buka Dalam Tab Baharu
+                    </button>
+                `;
+            }
+        }
+
+        function renderCameraIframeErrorScreen() {
+            const placeholder = document.getElementById('cam-placeholder');
+            const icon = document.getElementById('cam-placeholder-icon');
+            const text = document.getElementById('cam-placeholder-text');
+
+            placeholder.classList.remove('hidden');
+            icon.className = 'fa-solid fa-lock text-4xl text-yellow-400 mb-2';
+            text.innerHTML = `
+                <span class="text-yellow-300 font-bold block mb-1">Akses Kamera Disekat di Google Sites</span>
+                <span class="text-stone-300 text-[11px] block mb-3">Google Sites menyekat akses kamera di dalam bingkai benaman (iFrame).</span>
+                <button onclick="openInNewTab()" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold rounded-xl text-xs transition shadow-lg">
+                    <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Buka Permainan di Tab Baharu
+                </button>
+            `;
+            updateCamStatus('error', 'Disekat iFrame');
+        }
+
+        function disableCamera() {
+            state.cameraActive = false;
+            state.cameraStarting = false;
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+
+            const videoElement = document.getElementById('webcam');
+            if (videoElement) {
+                videoElement.srcObject = null;
+            }
+
+            const canvas = document.getElementById('output-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const placeholder = document.getElementById('cam-placeholder');
+            const icon = document.getElementById('cam-placeholder-icon');
+            const text = document.getElementById('cam-placeholder-text');
+
+            if (placeholder) placeholder.classList.remove('hidden');
+            if (icon) icon.className = 'fa-solid fa-video-slash text-4xl text-stone-600 mb-2';
+            if (text) text.textContent = 'Kamera dimatikan. Boleh dimainkan dengan tetikus atau papan kekunci.';
+            
+            updateCamStatus('off', 'Kamera Dimatikan');
+            updateHandStatus(false);
+            resetCooldownDisplay();
+        }
+
+        // Handle Hand Landmarks Callback from MediaPipe
+        function onHandResults(results) {
+            const canvas = document.getElementById('output-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Draw Skeleton Overlay
+                drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height);
+
+                // Classify Gesture
+                const detectedGesture = classifyGesture(landmarks);
+                updateHandStatus(true, getGestureDisplayName(detectedGesture));
+                handleGestureInput(detectedGesture);
+
+            } else {
+                updateHandStatus(false);
+                handleGestureInput('NONE');
+            }
+            ctx.restore();
+        }
+
+        function drawHandSkeleton(ctx, lm, w, h) {
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],        // Thumb
+                [0,5],[5,6],[6,7],[7,8],        // Index
+                [5,9],[9,10],[10,11],[11,12],   // Middle
+                [9,13],[13,14],[14,15],[15,16], // Ring
+                [13,17],[17,18],[18,19],[19,20], // Pinky
+                [0,17]
+            ];
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 3;
+            for (let [i, j] of connections) {
+                ctx.beginPath();
+                ctx.moveTo(lm[i].x * w, lm[i].y * h);
+                ctx.lineTo(lm[j].x * w, lm[j].y * h);
+                ctx.stroke();
+            }
+
+            for (let point of lm) {
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(point.x * w, point.y * h, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // Heuristic Classifier for Recognized Gestures
+        function classifyGesture(lm) {
+            const isExtended = (tip, pip) => lm[tip].y < lm[pip].y;
+
+            const indexExt = isExtended(8, 6);
+            const middleExt = isExtended(12, 10);
+            const ringExt = isExtended(16, 14);
+            const pinkyExt = isExtended(20, 18);
+
+            const thumbUp = lm[4].y < lm[3].y && lm[4].y < lm[2].y && lm[4].y < lm[1].y;
+
+            if (thumbUp && !indexExt && !middleExt && !ringExt && !pinkyExt) {
+                return 'THUMBS_UP';
+            }
+
+            if (!indexExt && !middleExt && !ringExt && !pinkyExt) {
+                return 'FIST';
+            }
+
+            if (indexExt && !middleExt && !ringExt && !pinkyExt) {
+                return 'POINTING';
+            }
+
+            if (indexExt && middleExt && !ringExt && !pinkyExt) {
+                return 'VICTORY';
+            }
+
+            if (indexExt && middleExt && ringExt && pinkyExt) {
+                return 'OPEN_PALM';
+            }
+
+            return 'UNKNOWN';
+        }
+
+        function getGestureDisplayName(g) {
+            switch(g) {
+                case 'OPEN_PALM': return 'Tapak Tangan Terbuka 🖐️';
+                case 'VICTORY': return 'Dua Jari (Peace) ✌️';
+                case 'POINTING': return 'Jari Menuding ☝️';
+                case 'THUMBS_UP': return 'Ibu Jari Ke Atas 👍';
+                case 'FIST': return 'Penumbuk Genggam ✊';
+                default: return 'Mengesan...';
+            }
+        }
+
+        function getGestureEmoji(g) {
+            switch(g) {
+                case 'OPEN_PALM': return '🖐️';
+                case 'VICTORY': return '✌️';
+                case 'POINTING': return '☝️';
+                case 'THUMBS_UP': return '👍';
+                case 'FIST': return '✊';
+                default: return '🖐️';
+            }
+        }
+
+        function handleGestureInput(gesture) {
+            document.querySelectorAll('.gesture-badge').forEach(b => b.classList.remove('gesture-active'));
+
+            if (state.cooldownActive) {
+                return;
+            }
+
+            if (gesture !== 'NONE' && gesture !== 'UNKNOWN') {
+                const badgeId = `badge-${gesture.toLowerCase()}`;
+                const badge = document.getElementById(badgeId);
+                if (badge) badge.classList.add('gesture-active');
+
+                if (state.lastGesture === gesture) {
+                    state.gestureHoldTimer += 100;
+                } else {
+                    state.lastGesture = gesture;
+                    state.gestureHoldTimer = 0;
+                }
+
+                updateCooldownRing(state.gestureHoldTimer, state.requiredHoldTime, gesture);
+
+                if (state.gestureHoldTimer >= state.requiredHoldTime) {
+                    executeGestureAction(gesture);
+                    triggerCooldown(1500);
+                }
+            } else {
+                state.lastGesture = 'NONE';
+                state.gestureHoldTimer = 0;
+                resetCooldownDisplay();
+            }
+        }
+
+        function updateCooldownRing(currentMs, maxMs, gesture) {
+            const container = document.getElementById('gesture-hold-indicator');
+            const circle = document.getElementById('cooldown-circle');
+            const emojiEl = document.getElementById('gesture-emoji-mini');
+
+            if (container) container.classList.remove('hidden');
+            if (emojiEl) emojiEl.textContent = getGestureEmoji(gesture);
+
+            const totalCircumference = 75.39;
+            const progress = Math.min(currentMs / maxMs, 1);
+            const offset = totalCircumference - (progress * totalCircumference);
+
+            if (circle) circle.style.strokeDashoffset = offset;
+        }
+
+        function resetCooldownDisplay() {
+            const container = document.getElementById('gesture-hold-indicator');
+            const circle = document.getElementById('cooldown-circle');
+            if (container) container.classList.add('hidden');
+            if (circle) circle.style.strokeDashoffset = 75.39;
+        }
+
+        function triggerCooldown(durationMs) {
+            state.cooldownActive = true;
+            state.gestureHoldTimer = 0;
+            resetCooldownDisplay();
+
+            clearTimeout(state.cooldownTimer);
+            state.cooldownTimer = setTimeout(() => {
+                state.cooldownActive = false;
+            }, durationMs);
+        }
+
+        function executeGestureAction(gesture) {
+            playSound('gesture');
+
+            const feedbackOverlay = document.getElementById('feedback-overlay');
+            if (!feedbackOverlay.classList.contains('opacity-0')) {
+                if (gesture === 'THUMBS_UP' || gesture === 'OPEN_PALM') {
+                    hideFeedback();
+                }
+                return;
+            }
+
+            if (state.currentLevel === 0) {
+                if (gesture === 'OPEN_PALM' || gesture === 'POINTING') {
+                    startLevel1();
+                }
+                return;
+            }
+
+            if (gesture === 'FIST') {
+                triggerHint();
+                return;
+            }
+
+            if (state.currentLevel === 2) {
+                if (gesture === 'OPEN_PALM' || gesture === 'POINTING') {
+                    highlightOption(0);
+                } else if (gesture === 'VICTORY') {
+                    highlightOption(1);
+                } else if (gesture === 'THUMBS_UP') {
+                    confirmSelectedAnswer();
+                }
+            }
+
+            if (state.currentLevel === 3) {
+                if (gesture === 'OPEN_PALM' || gesture === 'POINTING') {
+                    answerStage3(0);
+                } else if (gesture === 'VICTORY') {
+                    answerStage3(1);
+                }
+            }
+
+            if (state.currentLevel === 4) {
+                if (gesture === 'OPEN_PALM' || gesture === 'POINTING') {
+                    answerStage4(0);
+                } else if (gesture === 'VICTORY') {
+                    answerStage4(1);
+                }
+            }
+        }
+
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
